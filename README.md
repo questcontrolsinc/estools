@@ -44,6 +44,7 @@ python3 ./src/main.py
 Build a dynamically linked executable (pyinstaller):
 
 ```
+pip install -r ./requirements-dev.txt
 ./build.sh
 ```
 
