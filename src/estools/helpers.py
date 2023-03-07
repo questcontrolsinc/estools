@@ -4,6 +4,7 @@ from pathlib import Path
 import sys
 import time
 import typing as t
+from urllib.parse import urlparse
 
 from .types import JsonObject
 
@@ -40,8 +41,25 @@ def hosts_str_to_list(hosts: str) -> list[str]:
     Hosts string to list of hosts
     """
     h = hosts.split(',')
-    # filter empty
-    h = list(filter(None, h))
+
+    for k, v in enumerate(h):
+        v = v.strip()
+
+        # rm empty
+        if not v:
+            del h[k]
+            continue
+
+        # add default scheme
+        if not v.startswith('http'):
+            v = 'http://' + v
+            h[k] = v
+
+        url = urlparse(v)
+
+        # add default port
+        if not url.port:
+            h[k] += ':9200'
 
     if len(h) < 1:
         raise ValueError('Invalid number of hosts')
