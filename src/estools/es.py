@@ -13,7 +13,7 @@ REQUEST_TIMEOUT = 4
 class Es:
     """
     Elasticsearch client wrapper
-    (docs: https://elasticsearch-py.readthedocs.io/en/v7.15.2/api.html)
+    (docs: https://elasticsearch-py.readthedocs.io/en/v8.6.2/api.html)
     """
 
     def __init__(self, hosts: list[str], index: str) -> None:
