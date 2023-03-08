@@ -94,7 +94,7 @@ Logs will be written to the `./logs` directory relative to where the executable 
 
 ### Debug
 
-The `-d` or `--debug` option can be used to enable debugging output in the log (`./estools.log`).
+The `-d` or `--debug` option can be used to enable debugging output in the log.
 
 ### File
 
