@@ -25,6 +25,34 @@ docker run --rm ospreyfms/estools
 
 > If local image already exists, upgrade to the latest build using: `docker pull ospreyfms/estools`
 
+#### Network
+
+Most likely the [Docker network setting](https://docs.docker.com/engine/reference/run/#network-settings) `--network` will need to be set for networking with Elasticsearch, for example:
+
+```
+docker run --rm --network host ospreyfms/estools [...]
+```
+
+#### Logs
+
+The EsTools logs will be written to the `/estools/logs` directory inside the container. To gain access to the EsTools logs add the log directory as a Docker volume, for example:
+
+```
+docker run --rm -v /tmp/estools:/estools/logs ospreyfms/estools [...]
+```
+
+In this example, the EsTools logs will now be available in the host directory `/tmp/estools`.
+
+#### Files
+
+When using the [file option](#file) the file directory must be set as a Docker volume, for example:
+
+```
+docker run --rm -v /tmp/estools:/tmp ospreyfms/estools --file /tmp/file.json [...]
+```
+
+In this example, the file `/tmp/estools/file.json` should exist on the host.
+
 ### Python Script
 
 Download the latest source code and install:
@@ -38,6 +66,10 @@ Then run as a script:
 ```
 python3 ./src/main.py
 ```
+
+#### Logs
+
+Logs will be written to the `./logs` directory relative to where the script is executed.
 
 ### Executable
 
@@ -53,6 +85,10 @@ Then run the executable:
 ```
 ./dist/estools
 ```
+
+#### Logs
+
+Logs will be written to the `./logs` directory relative to where the executable is executed.
 
 ## Options
 

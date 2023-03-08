@@ -1,7 +1,9 @@
 import logging
 from logging.handlers import RotatingFileHandler
+from os import makedirs as os_makedirs
 
-LOG_FILE = './estools.log'
+LOG_DIR = './logs'
+LOG_FILE = f'{LOG_DIR}/estools.log'
 LOG_MAX_BYTES = 10_485_760  # 10M
 
 
@@ -22,6 +24,20 @@ class LoggerFormatter(logging.Formatter):
         return super().format(record)
 
 
+class RotatingFileHandlerDir(RotatingFileHandler):
+    def __init__(
+        self,
+        filename,
+        mode: str = "a",
+        maxBytes: int = 0,
+        backupCount: int = 0,
+        encoding: str | None = None,
+    ) -> None:
+        # log mkdir
+        os_makedirs(LOG_DIR, exist_ok=True)
+        super().__init__(filename, mode, maxBytes, backupCount, encoding)
+
+
 def logger_ctx(ctx: any) -> dict:
     """
     Context to logger ctx
@@ -31,7 +47,7 @@ def logger_ctx(ctx: any) -> dict:
 
 logger = logging.getLogger(__name__)
 
-file_handler = RotatingFileHandler(
+file_handler = RotatingFileHandlerDir(
     filename=LOG_FILE, mode='w', maxBytes=LOG_MAX_BYTES, backupCount=1
 )
 

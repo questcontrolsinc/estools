@@ -14,4 +14,4 @@ ADD ./src/main.py main.py
 ADD ./src/estools estools
 
 # run
-ENTRYPOINT ["python", "./main.py"]
+ENTRYPOINT ["python", "main.py"]
