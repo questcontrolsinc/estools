@@ -12,6 +12,7 @@ import click
 from .errors import TemplateError
 from .es import Es
 from .helpers import (
+    file_count_lines,
     file_must_not_exist,
     file_to_lines,
     hosts_str_to_list,
@@ -69,6 +70,7 @@ class EsTools:
                         hosts=out,
                         index=index,
                         size=size,
+                        total_docs=file_count_lines(file_path),
                     )
 
             # 3 ES export to ES import

@@ -9,6 +9,20 @@ from urllib.parse import urlparse
 from .types import JsonObject
 
 
+def file_count_lines(file_path: str) -> int:
+    """
+    Count lines in file
+    """
+    file_must_exist(file_path)
+
+    count = 0
+
+    with open(file_path, 'r', encoding='utf8') as f:
+        count = sum(1 for line in f)
+
+    return count
+
+
 def file_must_exist(file_path: str) -> None:
     """
     Trigger error if file does not exist
