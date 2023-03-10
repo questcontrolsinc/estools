@@ -2,11 +2,11 @@ from contextlib import suppress as contextlib_suppress
 import json
 from pathlib import Path
 import sys
-import time
-import typing as t
+from time import perf_counter
+from typing import Any, Iterator, Mapping
 from urllib.parse import urlparse
 
-from .types import JsonObject
+from .types import Json
 
 
 def file_count_lines(file_path: str) -> int:
@@ -39,7 +39,7 @@ def file_must_not_exist(file_path: str) -> None:
         raise FileExistsError(f'File already exists: "{file_path}"')
 
 
-def file_to_lines(file_path: str) -> t.Iterator[str]:
+def file_to_lines(file_path: str) -> Iterator[str]:
     """
     File to lines generator
     """
@@ -50,38 +50,38 @@ def file_to_lines(file_path: str) -> t.Iterator[str]:
             yield line.strip()
 
 
-def hosts_str_to_list(hosts: str) -> list[str]:
+def hosts_str_to_list(hosts_str: str) -> list[str]:
     """
     Hosts string to list of hosts
     """
-    h = hosts.split(',')
+    hosts = hosts_str.split(',')
 
-    for k, v in enumerate(h):
+    for k, v in enumerate(hosts):
         v = v.strip()
 
         # rm empty
         if not v:
-            del h[k]
+            del hosts[k]
             continue
 
         # add default scheme
         if not v.startswith('http'):
             v = 'http://' + v
-            h[k] = v
+            hosts[k] = v
 
         url = urlparse(v)
 
         # add default port
         if not url.port:
-            h[k] += ':9200'
+            hosts[k] += ':9200'
 
-    if len(h) < 1:
+    if len(hosts) < 1:
         raise ValueError('Invalid number of hosts')
 
-    return h
+    return hosts
 
 
-def prog_bar(completed_percent: float, maxwidth: float = 0.5, lock: object | None = None) -> None:
+def prog_bar(completed_percent: float, maxwidth: float = 0.5, lock=None) -> None:
     """
     Progress bar
     """
@@ -96,7 +96,7 @@ def prog_bar(completed_percent: float, maxwidth: float = 0.5, lock: object | Non
         sys.stdout.flush()
 
 
-def sort_str_to_list(sort: str) -> list[dict[str, str]]:
+def sort_str_to_list(sort: str) -> list[str | Mapping[str, Any]]:
     """
     Sort string to dict, like `"f1,f2:desc"` => `[{"f1": "asc"}, {"f2": "desc"}]`
     """
@@ -116,7 +116,7 @@ def sort_str_to_list(sort: str) -> list[dict[str, str]]:
     return sl
 
 
-def template_to_json(template: str) -> JsonObject:
+def template_to_json(template: str) -> Json:
     """
     Template to JSON object
     """
@@ -142,7 +142,7 @@ def timer_to_str(start_time: float) -> str:
     Timer using start time to string
     """
 
-    def seconds_to_str(seconds: int) -> str:
+    def seconds_to_str(seconds: float) -> str:
         """
         Seconds to string
         """
@@ -156,4 +156,4 @@ def timer_to_str(start_time: float) -> str:
         else:
             return f'{s:.2f}s'
 
-    return f'[Done in {seconds_to_str(time.perf_counter() - start_time)}]'
+    return f'[Done in {seconds_to_str(perf_counter() - start_time)}]'

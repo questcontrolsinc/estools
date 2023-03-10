@@ -1,4 +1,4 @@
-# EsTools: Exporter, Importer & Indexer for Elasticsearch
+# EsTools: Exporter & Importer for Elasticsearch
 
 - [Usage](#usage)
   - [Docker](#docker)
@@ -7,7 +7,7 @@
 - [Options](#options)
 - [Exporter](#exporter)
 - [Importer](#importer)
-- [Indexer](#indexer)
+- [Importer With Template](#importer-with-template)
   - [Using a Template](#using-a-template)
   - [Template Fields](#template-fields)
 
@@ -30,7 +30,7 @@ docker run --rm ospreyfms/estools
 Most likely the [Docker network setting](https://docs.docker.com/engine/reference/run/#network-settings) `--network` will need to be set for networking with Elasticsearch, for example:
 
 ```
-docker run --rm --network host ospreyfms/estools [...]
+docker run --rm --network host ospreyfms/estools ...
 ```
 
 #### Logs
@@ -38,7 +38,7 @@ docker run --rm --network host ospreyfms/estools [...]
 The EsTools logs will be written to the `/estools/logs` directory inside the container. To gain access to the EsTools logs add the log directory as a Docker volume, for example:
 
 ```
-docker run --rm -v /tmp/estools:/estools/logs ospreyfms/estools [...]
+docker run --rm -v /tmp/estools:/estools/logs ospreyfms/estools ...
 ```
 
 In this example, the EsTools logs will now be available in the host directory `/tmp/estools`.
@@ -48,7 +48,7 @@ In this example, the EsTools logs will now be available in the host directory `/
 When using the [file option](#file) the file directory must be set as a Docker volume, for example:
 
 ```
-docker run --rm -v /tmp/estools:/tmp ospreyfms/estools --file /tmp/file.json [...]
+docker run --rm -v /tmp/estools:/tmp ospreyfms/estools --file /tmp/file.json ...
 ```
 
 In this example, the file `/tmp/estools/file.json` should exist on the host.
@@ -174,11 +174,11 @@ Import from a file to an index:
 estools --index INDEX --file ./index.json -o "127.0.0.1"
 ```
 
-## Indexer
+## Importer With Template
 
-The indexer can be used to dynamically generate and index documents based on a template.
+The [template option](#template) can be used to dynamically generate and index documents based on a template.
 
-Index documents example:
+Import documents with a template example:
 
 ```
 estools --index INDEX --template ./template.json -o "127.0.0.1"

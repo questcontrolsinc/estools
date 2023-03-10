@@ -38,7 +38,7 @@ class RotatingFileHandlerDir(RotatingFileHandler):
         super().__init__(filename, mode, maxBytes, backupCount, encoding)
 
 
-def logger_ctx(ctx: any) -> dict:
+def logger_ctx(ctx: dict) -> dict:
     """
     Context to logger ctx
     """

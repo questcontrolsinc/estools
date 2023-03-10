@@ -1,5 +1,4 @@
-from typing import TypeAlias
+from typing import Any, TypeAlias
 
-Json: TypeAlias = bool | float | int | None | str | dict[str, 'Json'] | list['Json']
+Json: TypeAlias = dict[str, Any]
 JsonList: TypeAlias = list[Json]
-JsonObject: TypeAlias = dict[str, Json]

@@ -1,4 +1,5 @@
-import time
+from time import perf_counter
+from typing import Any, Mapping
 
 from elasticsearch import Elasticsearch, exceptions as es_exceptions, helpers as es_helpers
 
@@ -43,7 +44,7 @@ class Es:
 
         try:
             self._es = Elasticsearch(
-                hosts=hosts,
+                hosts=hosts,  # pyright: ignore
                 http_compress=http_compress,
                 request_timeout=request_timeout,
                 retry_on_timeout=retry_on_timeout,
@@ -61,7 +62,7 @@ class Es:
 
         logger.debug('Elasticsearch connection ready', extra=ctx)
 
-    def bulk_index(self, actions: JsonList, counter_cb: callable = None) -> int:
+    def bulk_index(self, actions: JsonList) -> int:
         """
         Bulk index docs
 
@@ -69,7 +70,7 @@ class Es:
         """
         ctx = logger_ctx({'index': self._index, 'num_of_actions': len(actions)})
         logger.debug('Sending bulk index actions to Elasticsearch', extra=ctx)
-        start = time.perf_counter()
+        start = perf_counter()
 
         try:
             aff, _ = es_helpers.bulk(self._es, actions=actions, index=self._index)
@@ -79,9 +80,6 @@ class Es:
             msg = f'Elasticsearch bulk index failed: {e}'
             logger.error(msg, extra=ctx)
             raise EsError(msg) from e
-
-        if counter_cb:
-            counter_cb(aff)
 
         msg = f'{aff:,} bulk index actions to Elasticsearch successful {timer_to_str(start)}'
         logger.debug(msg, extra=ctx)
@@ -94,7 +92,6 @@ class Es:
         """
         ctx = logger_ctx({'index': self._index})
         logger.debug('Fetching index count from Elasticsearch', extra=ctx)
-        start = time.perf_counter()
 
         res = self._es.count()
         count = res.get('count', 0)
@@ -111,7 +108,7 @@ class Es:
         slices: int,
         query: dict,
         size: int,
-        sort: list[dict[str, str]],
+        sort: list[str | Mapping[str, Any]],
         keep_alive: str = '1m',
     ) -> tuple[int, str, list]:
         """
@@ -131,7 +128,7 @@ class Es:
             }
         )
         logger.debug('Sending search scroll request to Elasticsearch', extra=ctx)
-        start = time.perf_counter()
+        start = perf_counter()
 
         # pylint: disable=unexpected-keyword-arg
         # (using kwargs)
@@ -174,7 +171,7 @@ class Es:
             }
         )
         logger.debug('Sending scroll request to Elasticsearch', extra=ctx)
-        start = time.perf_counter()
+        start = perf_counter()
 
         # pylint: disable=unexpected-keyword-arg
         # (using kwargs)
@@ -194,7 +191,7 @@ class Es:
         """
         ctx = logger_ctx({'index': self._index})
         logger.debug('Fetching total shards from Elasticsearch', extra=ctx)
-        start = time.perf_counter()
+        start = perf_counter()
 
         stats = self._es.cluster.stats()
         shards = stats.get('indices', {}).get('shards', {}).get('total', 0)

@@ -39,7 +39,7 @@ def cli(
     version: bool,
 ) -> None:
     """
-    EsTools: Exporter, Importer & Indexer for Elasticsearch
+    EsTools: Exporter & Importer for Elasticsearch
 
     \b
     Exporter examples:
@@ -50,7 +50,7 @@ def cli(
     Importer examples:
         Import file to index:
             estools --index INDEX --file ./index.json -o "127.0.0.1"
-    Indexer examples:
+    Template examples:
         Template documents to index:
             estools --index INDEX --template ./template.json -o "127.0.0.1"
         Template documents to file:

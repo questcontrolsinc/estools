@@ -1,11 +1,11 @@
-from concurrent.futures import ThreadPoolExecutor, as_completed as futures_as_completed
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed as futures_as_completed
 from datetime import datetime, timedelta
 import json
 from os import linesep as PY_EOL
 import random
-import threading
+from threading import Lock, Semaphore
 import time
-import typing as t
+from typing import Callable, Iterator
 
 import click
 
@@ -22,10 +22,11 @@ from .helpers import (
     timer_to_str,
 )
 from .logger import logger, logger_ctx
-from .types import JsonObject
+from .types import Json
 
-LOCK_MAIN = threading.Lock()
 MAX_WORKERS = 20
+MAX_QUEUE_SIZE = 100
+LOCK_MAIN = Lock()
 
 
 class EsTools:
@@ -33,7 +34,8 @@ class EsTools:
     ES tools
     """
 
-    _imp_docs_total = 0
+    # imported docs
+    _imp_aff = 0
 
     def __init__(
         self,
@@ -78,7 +80,7 @@ class EsTools:
             # finish
 
             # 4 import using template
-            elif template:
+            elif template and out is not None:
                 self.import_to_index(
                     cb_iterator=self.template_to_docs,
                     cb_arg=template,
@@ -89,9 +91,9 @@ class EsTools:
                 )
 
             # 5 export to stdout
-            else:
+            elif inp is not None:
 
-                def stdout(doc: JsonObject) -> None:
+                def stdout(doc: Json) -> None:
                     print(json.dumps(doc))
 
                 self.export(
@@ -114,7 +116,7 @@ class EsTools:
 
     def export(
         self,
-        cb: callable,
+        cb: Callable,
         hosts: str,
         index: str,
         size: int,
@@ -126,8 +128,8 @@ class EsTools:
 
         @return: `total_expected_docs, total_actual_docs`
         """
-        sort = sort_str_to_list(sort)
-        ctx = logger_ctx({'hosts': hosts, 'index': index, 'size': size, 'sort': sort})
+        sort_list = sort_str_to_list(sort)
+        ctx = logger_ctx({'hosts': hosts, 'index': index, 'size': size, 'sort': sort_list})
         logger.debug('Export index to callback', extra=ctx)
 
         start = time.perf_counter()
@@ -145,9 +147,9 @@ class EsTools:
         ctx['ctx']['shards'] = shards
 
         # limit max workers
-        max_workers = shards if shards <= MAX_WORKERS else MAX_WORKERS
+        max_workers = min(shards, MAX_WORKERS)
 
-        def document(doc: JsonObject) -> JsonObject:
+        def document(doc: Json) -> Json:
             """
             Document for output
             """
@@ -158,15 +160,15 @@ class EsTools:
         with ThreadPoolExecutor(
             max_workers=max_workers, thread_name_prefix='ThreadPool'
         ) as executor:
-            for i in range(shards):
+            for i in range(max_workers):
                 futures.append(
                     executor.submit(
                         es.search_scroll_slice,
                         slice_id=i,
-                        slices=shards,
+                        slices=max_workers,
                         query={'match_all': {}},
                         size=size,
-                        sort=sort,
+                        sort=sort_list,
                     )
                 )
 
@@ -279,7 +281,7 @@ class EsTools:
 
     def import_to_index(
         self,
-        cb_iterator: t.Iterator[JsonObject] | t.Iterator[str],
+        cb_iterator: Callable,
         cb_arg: str,
         hosts: str,
         index: str,
@@ -294,23 +296,22 @@ class EsTools:
 
         start = time.perf_counter()
         es = Es(hosts=hosts_str_to_list(hosts), index=index)
-        EsTools._imp_docs_total = 0  # reset
-
-        # progress bar
-        def prog_bar_update(count: int) -> None:
-            """
-            Update progress bar
-            """
-            if total_docs:
-                EsTools._imp_docs_total += count
-                prog_bar(EsTools._imp_docs_total / total_docs, lock=LOCK_MAIN)
+        EsTools._imp_aff = 0  # reset
 
         if total_docs:
             # init
             prog_bar(0)
 
-        aff = 0
-        batch, futures = [], []
+        batch = []
+
+        def future_done(aff: int) -> None:
+            EsTools._imp_aff += aff
+
+            # update progress bar
+            if total_docs:
+                prog_bar(EsTools._imp_aff / total_docs, lock=LOCK_MAIN)
+
+        blocking_executor = BlockingExecutor(max_tasks=MAX_QUEUE_SIZE, task_done_cb=future_done)
 
         with ThreadPoolExecutor(
             max_workers=MAX_WORKERS, thread_name_prefix='ThreadPool'
@@ -324,41 +325,32 @@ class EsTools:
                 # batch full
                 if len(batch) >= size:
                     # send batch
-                    futures.append(
-                        executor.submit(es.bulk_index, actions=batch, counter_cb=prog_bar_update)
-                    )
+                    blocking_executor.task_submit(executor, es.bulk_index, batch)
 
                     # reset batch
                     batch = []
 
             # send final batch
             if len(batch):
-                futures.append(
-                    executor.submit(es.bulk_index, actions=batch, counter_cb=prog_bar_update)
-                )
+                blocking_executor.task_submit(executor, es.bulk_index, batch)
 
-        for future in futures_as_completed(futures):
-            try:
-                aff += future.result()
-
-            except Exception as e:
-                raise RuntimeError(f'Future result failed: {e}') from e
+            logger.debug(
+                'Waiting on blocking tasks', extra=logger_ctx({'maxQueueSize': MAX_QUEUE_SIZE})
+            )
 
         if total_docs:
             prog_bar(100)  # always show completed
             print()
 
-        msg = f'{aff:,} documents bulk indexed {timer_to_str(start)}'
+        msg = f'{EsTools._imp_aff:,} documents bulk indexed {timer_to_str(start)}'
         logger.debug(msg, extra=ctx)
         print(msg)
 
-    def template_to_docs(
-        self, template: JsonObject, display_prog_bar: bool = False
-    ) -> t.Iterator[JsonObject]:
+    def template_to_docs(self, template_str: str, display_prog_bar: bool = False) -> Iterator[Json]:
         """
         Template to docs generator
         """
-        template = template_to_json(template)
+        template = template_to_json(template_str)
 
         # total number of docs to generate
         if '$total' in template:
@@ -665,3 +657,42 @@ class EsTools:
                 prog_bar((i + 1) / total)
 
             yield doc
+
+
+class BlockingExecutor:
+    """
+    ThreadPoolExecutor wrapper used for blocking based on max number of tasks
+    """
+
+    def __init__(self, max_tasks: int, task_done_cb: Callable | None = None) -> None:
+        """
+        Init
+        """
+        self._semaphore = Semaphore(max_tasks)
+        self._task_done_cb = task_done_cb
+
+    def task_done_cb(self, future: Future) -> None:
+        """
+        Task done callback handler
+        """
+        try:
+            if self._task_done_cb:
+                self._task_done_cb(future.result())
+
+            self._semaphore.release()
+        except Exception as e:
+            raise RuntimeError(f'Future result failed: {e}') from e
+
+    def task_submit(self, executor: ThreadPoolExecutor, fn: Callable, *args, **kwargs) -> Future:
+        """
+        Submit task
+        """
+        try:
+            self._semaphore.acquire()
+            future = executor.submit(fn, *args, **kwargs)
+        except Exception as e:
+            self._semaphore.release()
+            raise RuntimeError(f'Future submit failed: {e}') from e
+
+        future.add_done_callback(self.task_done_cb)
+        return future
